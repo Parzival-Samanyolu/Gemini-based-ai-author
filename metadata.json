@@ -1,0 +1,6 @@
+{
+  "name": "AI News Publisher for WordPress",
+  "description": "Directly post AI-generated news to your WordPress site. Fetches trending topics and creates complete articles with images, ready for publishing.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
