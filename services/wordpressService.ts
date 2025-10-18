@@ -1,5 +1,5 @@
 
-import { WordPressCredentials, Article, WordPressPublicationStatus } from '../types';
+import { WordPressCredentials, Article, WordPressPublicationStatus, WPMedia } from '../types';
 
 /**
  * Converts a base64 string to a Blob object.
@@ -57,7 +57,7 @@ const handleWordPressError = async (response: Response): Promise<Error> => {
     return new Error(errorMessage);
 };
 
-export const uploadImageToWordPress = async (creds: WordPressCredentials, base64Image: string, filename: string): Promise<number> => {
+export const uploadImageToWordPress = async (creds: WordPressCredentials, base64Image: string, filename: string): Promise<WPMedia> => {
   if (!base64Image.startsWith('data:image')) {
     throw new Error('Invalid image data format.');
   }
@@ -83,7 +83,7 @@ export const uploadImageToWordPress = async (creds: WordPressCredentials, base64
     if (!response.ok) throw await handleWordPressError(response);
     
     const mediaData = await response.json();
-    return mediaData.id;
+    return mediaData;
 
   } catch (error) {
      console.error("Failed to upload image to WordPress:", error);
@@ -184,7 +184,7 @@ const getOrCreateTags = async (creds: WordPressCredentials, tagNames: string[]):
     return tagIds;
 };
 
-export const postToWordPress = async (creds: WordPressCredentials, article: Article, featuredMediaId: number | null, setHaberCategory: boolean, publishStatus: WordPressPublicationStatus): Promise<string> => {
+export const postToWordPress = async (creds: WordPressCredentials, article: Article, featuredMediaId: number | null, setHaberCategory: boolean, publishStatus: WordPressPublicationStatus, scheduleDate?: string): Promise<string> => {
   const { siteUrl, username, password } = creds;
 
   if (!siteUrl || !username || !password) {
@@ -195,8 +195,6 @@ export const postToWordPress = async (creds: WordPressCredentials, article: Arti
   const headers = getAuthHeaders(username, password);
   headers.append('Content-Type', 'application/json');
 
-  const contentHtml = article.content.map(p => `<p>${p}</p>`).join('\n\n');
-  
   const postBody: {
     title: string;
     content: string;
@@ -205,12 +203,21 @@ export const postToWordPress = async (creds: WordPressCredentials, article: Arti
     featured_media?: number;
     tags?: number[];
     categories?: number[];
+    date?: string;
   } = {
     title: article.title,
-    content: contentHtml,
+    content: article.content,
     status: publishStatus,
     excerpt: article.metaDescription,
   };
+
+  // Scheduling logic
+  if (publishStatus === WordPressPublicationStatus.Publish && scheduleDate && new Date(scheduleDate) > new Date()) {
+    postBody.status = 'future';
+    // WordPress expects a full ISO 8601 format (YYYY-MM-DDTHH:mm:ss).
+    // The HTML datetime-local input provides YYYY-MM-DDTHH:mm. We append seconds to match the API requirement.
+    postBody.date = `${scheduleDate}:00`;
+  }
 
   if (featuredMediaId) {
     postBody.featured_media = featuredMediaId;

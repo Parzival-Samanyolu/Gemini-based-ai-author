@@ -1,7 +1,18 @@
-
-import React, { useState, useCallback } from 'react';
-import { Tone, Article, WordPressCredentials, PostStatus, WordPressPublicationStatus } from './types';
-import { generateArticleContent, generateArticleImage, fetchNationalTrendingTopics, fetchWorldwideTrendingTopics, fetchTechTrendingTopics, fetchFamousSingerTopics, fetchHoroscopeTopics, fetchSportTrendingTopics } from './services/geminiService';
+import React, { useState, useCallback, createContext, useContext, useEffect } from 'react';
+import { Tone, Article, WordPressCredentials, PostStatus, WordPressPublicationStatus, ImageStyle, WPMedia } from './types';
+import { 
+  generateArticleContent, 
+  generateArticleImage, 
+  fetchNationalTrendingTopics, 
+  fetchWorldNewsTopics, 
+  fetchTechTrendingTopics, 
+  fetchEconomyTopics,
+  fetchHealthTopics,
+  fetchScienceTopics,
+  fetchEntertainmentTopics,
+  fetchHoroscopeTopics, 
+  fetchSportTrendingTopics 
+} from './services/geminiService';
 import { postToWordPress, uploadImageToWordPress } from './services/wordpressService';
 import { addTitleToImage } from './services/imageService';
 import Header from './components/Header';
@@ -10,14 +21,67 @@ import ArticlePreview from './components/ArticlePreview';
 import Loader from './components/Loader';
 import ErrorDisplay from './components/ErrorDisplay';
 
-const App: React.FC = () => {
+// --- Theme Management ---
+type Theme = 'light' | 'dark';
+
+interface ThemeContextType {
+  theme: Theme;
+  toggleTheme: () => void;
+}
+
+const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
+
+const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window !== 'undefined') {
+      const storedTheme = localStorage.getItem('theme');
+      if (storedTheme === 'light' || storedTheme === 'dark') {
+        return storedTheme;
+      }
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    root.classList.remove(theme === 'light' ? 'dark' : 'light');
+    root.classList.add(theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
+  };
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+};
+
+export const useTheme = (): ThemeContextType => {
+  const context = useContext(ThemeContext);
+  if (context === undefined) {
+    throw new Error('useTheme must be used within a ThemeProvider');
+  }
+  return context;
+};
+// --- End Theme Management ---
+
+
+const AppContent: React.FC = () => {
   const [topic, setTopic] = useState<string>('');
   const [tone, setTone] = useState<Tone>(Tone.Journalistic);
   const [includeImage, setIncludeImage] = useState<boolean>(true);
+  const [imageStyle, setImageStyle] = useState<ImageStyle>(ImageStyle.Photorealistic);
+  const [numberOfImages, setNumberOfImages] = useState<number>(1);
   const [imageCredit, setImageCredit] = useState<string>('');
   const [includeTags, setIncludeTags] = useState<boolean>(true);
   const [setHaberCategory, setSetHaberCategory] = useState<boolean>(true);
   const [publishStatus, setPublishStatus] = useState<WordPressPublicationStatus>(WordPressPublicationStatus.Publish);
+  const [scheduleDate, setScheduleDate] = useState<string>('');
   const [wordPressCreds, setWordPressCreds] = useState<WordPressCredentials>({ siteUrl: '', username: '', password: '' });
   
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -30,14 +94,15 @@ const App: React.FC = () => {
   const [postError, setPostError] = useState<string | null>(null);
 
   const [generatedArticle, setGeneratedArticle] = useState<Article | null>(null);
-  const [isRegeneratingImage, setIsRegeneratingImage] = useState<boolean>(false);
+  const [isRegeneratingImages, setIsRegeneratingImages] = useState<boolean>(false);
+  const [isEditorEnabled, setIsEditorEnabled] = useState<boolean>(true);
 
-  const handleFetchNationalTopics = useCallback(async () => {
+  const fetchTopics = useCallback(async (fetcher: () => Promise<string[]>) => {
     setIsFetchingTopics(true);
     setError(null);
     setTrendingTopics([]);
     try {
-      const topics = await fetchNationalTrendingTopics();
+      const topics = await fetcher();
       setTrendingTopics(topics);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'An unknown error occurred while fetching topics.');
@@ -46,75 +111,30 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const handleFetchWorldwideTopics = useCallback(async () => {
-    setIsFetchingTopics(true);
-    setError(null);
-    setTrendingTopics([]);
-    try {
-      const topics = await fetchWorldwideTrendingTopics();
-      setTrendingTopics(topics);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'An unknown error occurred while fetching topics.');
-    } finally {
-      setIsFetchingTopics(false);
+  const handleFetchNationalTopics = useCallback(() => fetchTopics(fetchNationalTrendingTopics), [fetchTopics]);
+  const handleFetchWorldNewsTopics = useCallback(() => fetchTopics(fetchWorldNewsTopics), [fetchTopics]);
+  const handleFetchTechTopics = useCallback(() => fetchTopics(fetchTechTrendingTopics), [fetchTopics]);
+  const handleFetchEconomyTopics = useCallback(() => fetchTopics(fetchEconomyTopics), [fetchTopics]);
+  const handleFetchHealthTopics = useCallback(() => fetchTopics(fetchHealthTopics), [fetchTopics]);
+  const handleFetchScienceTopics = useCallback(() => fetchTopics(fetchScienceTopics), [fetchTopics]);
+  const handleFetchEntertainmentTopics = useCallback(() => fetchTopics(fetchEntertainmentTopics), [fetchTopics]);
+  const handleFetchHoroscopeTopics = useCallback(() => fetchTopics(fetchHoroscopeTopics), [fetchTopics]);
+  const handleFetchSportTopics = useCallback(() => fetchTopics(fetchSportTrendingTopics), [fetchTopics]);
+  
+  const getImagePrompt = (title: string, style: ImageStyle): string => {
+    const corePrompt = `A high-quality, professional image representing the news headline: "${title}". The image must be clean, with no text or watermarks.`;
+    switch (style) {
+      case ImageStyle.Illustration:
+        return `Style: vibrant, detailed illustration, modern digital art. ${corePrompt}`;
+      case ImageStyle.DigitalArt:
+        return `Style: stunning high-resolution digital art, cinematic, visually captivating. ${corePrompt}`;
+      case ImageStyle.Abstract:
+        return `Style: abstract artistic interpretation with bold colors and textures. ${corePrompt}`;
+      case ImageStyle.Photorealistic:
+      default:
+        return `Style: photorealistic, professional-grade photo, as if taken by a photojournalist on location. ${corePrompt}`;
     }
-  }, []);
-
-  const handleFetchTechTopics = useCallback(async () => {
-    setIsFetchingTopics(true);
-    setError(null);
-    setTrendingTopics([]);
-    try {
-      const topics = await fetchTechTrendingTopics();
-      setTrendingTopics(topics);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'An unknown error occurred while fetching topics.');
-    } finally {
-      setIsFetchingTopics(false);
-    }
-  }, []);
-
-  const handleFetchSingerTopics = useCallback(async () => {
-    setIsFetchingTopics(true);
-    setError(null);
-    setTrendingTopics([]);
-    try {
-      const topics = await fetchFamousSingerTopics();
-      setTrendingTopics(topics);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'An unknown error occurred while fetching topics.');
-    } finally {
-      setIsFetchingTopics(false);
-    }
-  }, []);
-
-  const handleFetchHoroscopeTopics = useCallback(async () => {
-    setIsFetchingTopics(true);
-    setError(null);
-    setTrendingTopics([]);
-    try {
-      const topics = await fetchHoroscopeTopics();
-      setTrendingTopics(topics);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'An unknown error occurred while fetching topics.');
-    } finally {
-      setIsFetchingTopics(false);
-    }
-  }, []);
-
-  const handleFetchSportTopics = useCallback(async () => {
-    setIsFetchingTopics(true);
-    setError(null);
-    setTrendingTopics([]);
-    try {
-      const topics = await fetchSportTrendingTopics();
-      setTrendingTopics(topics);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'An unknown error occurred while fetching topics.');
-    } finally {
-      setIsFetchingTopics(false);
-    }
-  }, []);
+  };
 
   const handleGenerate = useCallback(async () => {
     if (!topic.trim()) {
@@ -127,22 +147,24 @@ const App: React.FC = () => {
     setPostStatus(PostStatus.Idle);
     setPostError(null);
     setGeneratedArticle(null);
-    setIsRegeneratingImage(false);
+    setIsRegeneratingImages(false);
 
     try {
       const articleContent = await generateArticleContent(topic, tone, includeTags);
-      let imageUrl: string | null = null;
+      let imageUrls: string[] = [];
       
       if (includeImage) {
-        const imagePrompt = `A photorealistic, high-quality, journalistic-style photo capturing the essence of the news headline: "${articleContent.title}". The image should look like it was taken by a professional photojournalist on location. Avoid any text or watermarks.`;
-        const rawImageUrl = await generateArticleImage(imagePrompt);
+        const imagePrompt = getImagePrompt(articleContent.title, imageStyle);
+        const rawImageUrls = await generateArticleImage(imagePrompt, numberOfImages);
 
-        if (rawImageUrl) {
-          imageUrl = await addTitleToImage(rawImageUrl, articleContent.title, imageCredit);
+        if (rawImageUrls.length > 0) {
+           imageUrls = await Promise.all(
+            rawImageUrls.map(rawUrl => addTitleToImage(rawUrl, articleContent.title, imageCredit))
+          );
         }
       }
 
-      const fullArticle: Article = { ...articleContent, imageUrl };
+      const fullArticle: Article = { ...articleContent, imageUrls };
       setGeneratedArticle(fullArticle);
     } catch (e) {
       console.error(e);
@@ -150,50 +172,84 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [topic, tone, includeImage, includeTags, imageCredit]);
+  }, [topic, tone, includeImage, includeTags, imageCredit, imageStyle, numberOfImages]);
+  
+  const handleArticleContentChange = (newContent: string) => {
+    if (!generatedArticle) return;
+    setGeneratedArticle(prev => prev ? { ...prev, content: newContent } : null);
+  };
 
-  const handleRegenerateImage = useCallback(async () => {
+  const handleRegenerateImages = useCallback(async () => {
     if (!generatedArticle) return;
 
-    setIsRegeneratingImage(true);
+    setIsRegeneratingImages(true);
     setError(null);
 
     try {
-      const imagePrompt = `A photorealistic, high-quality, journalistic-style photo capturing the essence of the news headline: "${generatedArticle.title}". The image should look like it was taken by a professional photojournalist on location. Avoid any text or watermarks.`;
-      const newRawImageUrl = await generateArticleImage(imagePrompt);
+      const imagePrompt = getImagePrompt(generatedArticle.title, imageStyle);
+      const newRawImageUrls = await generateArticleImage(imagePrompt, numberOfImages);
 
-      if (newRawImageUrl) {
-        const newImageUrlWithTitle = await addTitleToImage(newRawImageUrl, generatedArticle.title, imageCredit);
-        setGeneratedArticle(prev => prev ? { ...prev, imageUrl: newImageUrlWithTitle } : null);
+      if (newRawImageUrls.length > 0) {
+        const newImageUrlsWithTitle = await Promise.all(
+          newRawImageUrls.map(rawUrl => addTitleToImage(rawUrl, generatedArticle.title, imageCredit))
+        );
+        setGeneratedArticle(prev => prev ? { ...prev, imageUrls: newImageUrlsWithTitle } : null);
       } else {
-        setError('Could not regenerate image. The AI service might be unavailable.');
+        setError('Could not regenerate images. The AI service might be unavailable.');
       }
     } catch (e) {
       console.error(e);
       setError(e instanceof Error ? e.message : 'An unknown error occurred during image regeneration.');
     } finally {
-      setIsRegeneratingImage(false);
+      setIsRegeneratingImages(false);
     }
-  }, [generatedArticle, imageCredit]);
+  }, [generatedArticle, imageCredit, imageStyle, numberOfImages]);
 
   const handlePost = useCallback(async () => {
     if (!generatedArticle) return;
 
     setPostStatus(PostStatus.Idle);
     setPostError(null);
-    let mediaId: number | null = null;
+    let featuredMediaId: number | null = null;
+    const articleForPost = { ...generatedArticle };
     
     try {
-      // Step 1: Upload image to WP Media Library if it exists
-      if (includeImage && generatedArticle.imageUrl) {
+      // Step 1: Upload images to WP Media Library if they exist
+      if (includeImage && generatedArticle.imageUrls.length > 0) {
         setPostStatus(PostStatus.UploadingImage);
-        const filename = generatedArticle.title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').substring(0, 50) + '.jpg';
-        mediaId = await uploadImageToWordPress(wordPressCreds, generatedArticle.imageUrl, filename);
+
+        const uploadPromises = generatedArticle.imageUrls.map((imgUrl, index) => {
+           const filename = `${generatedArticle.title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').substring(0, 40)}-${index + 1}.jpg`;
+           return uploadImageToWordPress(wordPressCreds, imgUrl, filename);
+        });
+
+        const uploadedMedia: WPMedia[] = await Promise.all(uploadPromises);
+        
+        if (uploadedMedia.length > 0) {
+            featuredMediaId = uploadedMedia[0].id;
+
+            if (uploadedMedia.length > 1) {
+                const additionalImagesHtml = uploadedMedia.slice(1)
+                    .map(media => `<figure class="wp-block-image size-large"><img src="${media.source_url}" alt="${generatedArticle.title}"/></figure>`)
+                    .join('\n');
+                
+                // Insert images after the first paragraph for better layout.
+                const content = articleForPost.content;
+                const insertionPoint = content.indexOf('</p>');
+                if (insertionPoint !== -1) {
+                    const position = insertionPoint + 4; // after the </p> tag
+                    articleForPost.content = content.slice(0, position) + '\n' + additionalImagesHtml + '\n' + content.slice(position);
+                } else {
+                    // Fallback: if no paragraph tag, prepend images so they are visible at the top.
+                    articleForPost.content = additionalImagesHtml + '\n' + content;
+                }
+            }
+        }
       }
       
       // Step 2: Post the article content with the featured media ID
       setPostStatus(PostStatus.Posting);
-      await postToWordPress(wordPressCreds, generatedArticle, mediaId, setHaberCategory, publishStatus);
+      await postToWordPress(wordPressCreds, articleForPost, featuredMediaId, setHaberCategory, publishStatus, scheduleDate);
 
       setPostStatus(PostStatus.Success);
 
@@ -213,25 +269,36 @@ const App: React.FC = () => {
       ];
 
       if (permissionErrorKeywords.some(keyword => finalErrorMessage.toLowerCase().includes(keyword))) {
-          finalErrorMessage = `WordPress Permission Error: The specified user cannot create or edit posts. Please check that the user has the 'Author', 'Editor', or 'Administrator' role assigned in your WordPress dashboard. Also, verify that no security plugins are blocking REST API requests. (Original error: ${finalErrorMessage})`;
+          finalErrorMessage = `WordPress Permission Error: The specified user cannot create or edit posts. Please check that the user has the 'Author', 'Editor' or 'Administrator' role assigned in your WordPress dashboard. Also, verify that no security plugins are blocking REST API requests. (Original error: ${finalErrorMessage})`;
       }
       
       setPostError(finalErrorMessage);
     }
-  }, [generatedArticle, wordPressCreds, includeImage, setHaberCategory, publishStatus]);
+  }, [generatedArticle, wordPressCreds, includeImage, setHaberCategory, publishStatus, scheduleDate]);
   
   const isPostable = wordPressCreds.siteUrl && wordPressCreds.username && wordPressCreds.password;
   
   const getPostButtonText = () => {
     switch (postStatus) {
-      case PostStatus.UploadingImage: return 'Uploading Image...';
+      case PostStatus.UploadingImage: return 'Uploading Image(s)...';
       case PostStatus.Posting: return 'Posting Article...';
-      default: return publishStatus === WordPressPublicationStatus.Publish ? 'Publish to WordPress' : 'Post to WordPress as Draft';
+      default: 
+        if (publishStatus === WordPressPublicationStatus.Publish && scheduleDate && new Date(scheduleDate) > new Date()) {
+          return 'Schedule Post';
+        }
+        return publishStatus === WordPressPublicationStatus.Publish ? 'Publish to WordPress' : 'Post to WordPress as Draft';
     }
   }
 
+  const getSuccessMessage = () => {
+    if (publishStatus === WordPressPublicationStatus.Publish && scheduleDate && new Date(scheduleDate) > new Date()) {
+        return "Successfully scheduled post on WordPress! Check your 'Posts' section."
+    }
+    return `Successfully posted to WordPress! Check your 'Posts' section for the new ${publishStatus === WordPressPublicationStatus.Publish ? 'post' : 'draft'}.`
+  }
+
   return (
-    <div className="min-h-screen bg-gray-100 font-sans">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 font-sans transition-colors duration-300">
       <Header />
       <main className="container mx-auto p-4 md:p-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -243,6 +310,10 @@ const App: React.FC = () => {
               setTone={setTone}
               includeImage={includeImage}
               setIncludeImage={setIncludeImage}
+              imageStyle={imageStyle}
+              setImageStyle={setImageStyle}
+              numberOfImages={numberOfImages}
+              setNumberOfImages={setNumberOfImages}
               imageCredit={imageCredit}
               setImageCredit={setImageCredit}
               includeTags={includeTags}
@@ -251,9 +322,12 @@ const App: React.FC = () => {
               isLoading={isLoading}
               trendingTopics={trendingTopics}
               onFetchNationalTopics={handleFetchNationalTopics}
-              onFetchWorldwideTopics={handleFetchWorldwideTopics}
+              onFetchWorldNewsTopics={handleFetchWorldNewsTopics}
               onFetchTechTopics={handleFetchTechTopics}
-              onFetchSingerTopics={handleFetchSingerTopics}
+              onFetchEconomyTopics={handleFetchEconomyTopics}
+              onFetchHealthTopics={handleFetchHealthTopics}
+              onFetchScienceTopics={handleFetchScienceTopics}
+              onFetchEntertainmentTopics={handleFetchEntertainmentTopics}
               onFetchHoroscopeTopics={handleFetchHoroscopeTopics}
               onFetchSportTopics={handleFetchSportTopics}
               isFetchingTopics={isFetchingTopics}
@@ -263,49 +337,51 @@ const App: React.FC = () => {
               setSetHaberCategory={setSetHaberCategory}
               publishStatus={publishStatus}
               setPublishStatus={setPublishStatus}
+              scheduleDate={scheduleDate}
+              setScheduleDate={setScheduleDate}
+              isEditorEnabled={isEditorEnabled}
+              setIsEditorEnabled={setIsEditorEnabled}
             />
           </div>
-
-          <div className="lg:col-span-8">
-            <div className="bg-white p-6 rounded-xl shadow-lg min-h-[500px] flex flex-col">
-              {isLoading && <div className="flex-grow flex items-center justify-center"><Loader /></div>}
-              {error && !isLoading && <ErrorDisplay message={error} />}
-              {!isLoading && !error && !generatedArticle && (
-                <div className="text-center text-gray-500 flex-grow flex flex-col items-center justify-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">Your article preview will appear here</h3>
-                  <p className="mt-1 text-sm text-gray-500">Fetch topics or enter one, then click "Generate News".</p>
-                </div>
-              )}
-              {generatedArticle && (
-                <div className="space-y-6">
-                  <ArticlePreview 
-                    article={generatedArticle} 
-                    onRegenerateImage={handleRegenerateImage}
-                    isRegeneratingImage={isRegeneratingImage}
-                  />
-                  <div className="bg-gray-50 p-4 rounded-lg space-y-4">
-                     <h3 className="font-semibold text-gray-800">Publish to WordPress</h3>
-                     {!isPostable && <p className="text-sm text-orange-600">Please provide all WordPress credentials in the left panel to enable posting.</p>}
+          <div className="lg:col-span-8 space-y-6">
+            {isLoading && <Loader />}
+            {error && <ErrorDisplay message={error} />}
+            {generatedArticle && (
+              <>
+                <ArticlePreview 
+                  article={generatedArticle}
+                  onContentChange={handleArticleContentChange}
+                  onRegenerateImages={handleRegenerateImages}
+                  isRegeneratingImages={isRegeneratingImages}
+                  isEditorEnabled={isEditorEnabled}
+                />
+                {isPostable && (
+                  <div className="mt-6">
                      <button
                         onClick={handlePost}
-                        disabled={!isPostable || postStatus === PostStatus.Posting || postStatus === PostStatus.UploadingImage}
-                        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-300 disabled:cursor-not-allowed transition-colors"
+                        disabled={postStatus === PostStatus.Posting || postStatus === PostStatus.UploadingImage}
+                        className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-green-400 dark:disabled:bg-green-500/50 disabled:cursor-not-allowed transition-colors"
                      >
-                       {getPostButtonText()}
+                        {getPostButtonText()}
                      </button>
-                     {postStatus === PostStatus.Success && <p className="text-sm text-green-600 text-center">Successfully posted to WordPress! Check your 'Posts' section for the new {publishStatus === WordPressPublicationStatus.Publish ? 'post' : 'draft'}.</p>}
+                     {postStatus === PostStatus.Success && <p className="mt-2 text-sm text-green-600 dark:text-green-400">{getSuccessMessage()}</p>}
                      {postStatus === PostStatus.Error && postError && <ErrorDisplay message={postError} />}
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       </main>
     </div>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 };
 

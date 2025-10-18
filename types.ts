@@ -6,17 +6,32 @@ export enum Tone {
   Journalistic = 'Journalistic',
   Optimistic = 'Optimistic',
   Pessimistic = 'Pessimistic',
+  Humorous = 'Humorous',
+  Investigative = 'Investigative',
+}
+
+export enum ImageStyle {
+  Photorealistic = 'Photorealistic',
+  Illustration = 'Illustration',
+  DigitalArt = 'Digital Art',
+  Abstract = 'Abstract',
+}
+
+export interface Source {
+  uri: string;
+  title: string;
 }
 
 export interface ArticleContent {
   title: string;
-  content: string[];
+  content: string;
   metaDescription: string;
   tags?: string[];
+  sources?: Source[];
 }
 
 export interface Article extends ArticleContent {
-  imageUrl: string | null;
+  imageUrls: string[];
 }
 
 export interface WordPressCredentials {
@@ -36,4 +51,9 @@ export enum PostStatus {
 export enum WordPressPublicationStatus {
     Draft = 'draft',
     Publish = 'publish',
+}
+
+export interface WPMedia {
+  id: number;
+  source_url: string;
 }

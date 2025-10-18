@@ -1,6 +1,5 @@
-
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
-import { Tone, ArticleContent } from '../types';
+import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
+import { Tone, ArticleContent, Source } from '../types';
 
 if (!process.env.API_KEY) {
   throw new Error("API_KEY environment variable not set");
@@ -39,27 +38,57 @@ const parseJsonFromText = <T,>(text: string): T => {
 
 
 export const generateArticleContent = async (topic: string, tone: Tone, includeTags: boolean): Promise<ArticleContent> => {
+  const systemInstruction = `You are an AI news writer for Samanyolu.com, a Turkish digital media portal focused on technology, gaming, space/astronomy, books, and entertainment.  
+Your writing style must be clear, engaging, and professional in Turkish, while also being optimized for SEO.  
+
+Writing Guidelines:
+- Always write in fluent, natural Turkish.  
+- Start with a catchy introduction (2–3 sentences) that hooks the reader.  
+- Use clear subheadings (H2, H3) to organize the article.  
+- Keep sentences concise, but not robotic; aim for readability and flow.  
+- Use bullet points, lists, or tables where helpful.  
+- Provide context, comparisons, or practical value (not just news repetition).  
+- End articles with a short conclusion.
+- Integrate relevant keywords naturally for SEO (e.g., teknoloji haberleri, ücretsiz oyun kodları, akıllı telefon karşılaştırmaları).  
+- Always write in an **informative yet slightly conversational** tone, not academic.  
+
+Content Rules:
+- Minimum length: 500–700 words for news, 800–1200 for guides/explainers.  
+- Add Turkish date formats where relevant (örn: “20 Eylül 2025”).  
+- For gaming articles, always include platforms (PC, PS, Xbox, Mobile).  
+- For tech reviews, highlight fiyat, performans, avantajlar, dezavantlar.  
+- For astronomy/science, explain concepts simply so anyone can understand.  
+- NEVER fabricate fake news; if uncertain, write general facts + context.  
+
+Output Format:
+- Title (SEO friendly, 55–65 characters)  
+- Meta Description (140–160 characters, keyword-rich)  
+- Main Article (with subheadings, lists, conclusion)  
+
+Example Titles:
+- “2025’in En İyi Bütçe Telefonları: Öğrenciler İçin Rehber”  
+- “Epic Games Bu Hafta Hangi Ücretsiz Oyunları Veriyor?”  
+- “James Webb Teleskobu’ndan Yeni Görseller: Evrenin Sırları”  
+
+Remember:  
+You are not just summarizing news — you are creating **engaging, SEO-friendly, original Turkish articles** that fit Samanyolu.com’s voice.`;
+
   const prompt = `
-    Act as a seasoned journalist for a major Turkish news publication. Your task is to write a high-quality, engaging, and human-like news article on the topic: "${topic}".
-    
-    The entire article must be written in Turkish, with a ${tone} tone.
-    The total length of the article's content (the 'content' field) must be between 3000 and 5000 characters.
+    Please research the following topic using Google Search to ensure the information is up-to-date and accurate: "${topic}".
 
-    To make the article feel authentic and human-written, please adhere to these guidelines:
-    - **Structure:** The article must have a clear structure: an engaging introduction (lede), a detailed body, and a summary conclusion.
-    - **Engaging Content:**
-        - Start with a strong opening paragraph that grabs the reader's attention.
-        - Include at least one or two *fictional but plausible quotes* from relevant figures (e.g., experts, officials, witnesses) to add depth and authenticity. Attribute them realistically (e.g., "Ekonomi analisti Dr. Aylin Yılmaz, konuyla ilgili olarak, '...' dedi.").
-        - Use varied sentence structures and lengths to create a natural reading flow.
-        - The body of the article should provide background, details, and context.
-    - **Conclusion:** End with a concluding paragraph that summarizes the key points and offers a forward-looking perspective on the topic.
+    Based on your research, generate a news article that adheres to these specific requirements:
+    - The article must have a ${tone} tone.
+    - ${includeTags ? 'Generate a list of 3-5 relevant tags for the article.' : 'The "tags" field in the JSON output must be an empty array [].'}
+    - Ensure the main article content adheres to the length guidelines specified in the system instructions (500-700 words for news).
+    - If you use lists, please format them with markdown (e.g., "1. First item" or "* Bullet item").
 
-    The output must be a single, minified JSON object with no markdown formatting.
-    The JSON object must follow this exact structure:
+    The entire response MUST be a single, valid JSON object. Do not add any text, commentary, or markdown fences before or after the JSON.
+    The JSON object must conform to the following structure:
     {
-      "title": "string",
-      "content": ["string", "string", ...],
-      "metaDescription": "string"${includeTags ? ',\n      "tags": ["string", "string", "string"]' : ''}
+      "title": "string (The news article's headline.)",
+      "content": "string[] (An array of strings, where each string is a paragraph or a list item of the article body.)",
+      "metaDescription": "string (A short summary for SEO purposes.)",
+      "tags": "string[] (An array of relevant keywords or tags for the article.)"
     }
   `;
 
@@ -68,149 +97,159 @@ export const generateArticleContent = async (topic: string, tone: Tone, includeT
       model: "gemini-2.5-flash",
       contents: prompt,
       config: {
-        responseMimeType: "application/json",
+        systemInstruction: systemInstruction,
+        tools: [{ googleSearch: {} }],
         temperature: 0.7,
       },
     });
 
-    const articleData = parseJsonFromText<ArticleContent>(response.text);
+    const parsedData = parseJsonFromText<{
+      title: string;
+      content: string[];
+      metaDescription: string;
+      tags?: string[];
+    }>(response.text);
 
-    if (!articleData.title || !Array.isArray(articleData.content) || articleData.content.length === 0 || !articleData.metaDescription || (includeTags && !Array.isArray(articleData.tags))) {
-        throw new Error("Invalid article structure received from AI. Required fields are missing.");
+    const sources: Source[] = response.candidates?.[0]?.groundingMetadata?.groundingChunks
+      ?.map(chunk => ({
+        uri: chunk.web?.uri || '',
+        title: chunk.web?.title || '',
+      }))
+      .filter(source => source.uri) || [];
+      
+    const contentArray = parsedData.content;
+    let htmlContent = '';
+    let inOl = false;
+    let inUl = false;
+
+    const closeLists = () => {
+        if (inOl) {
+            htmlContent += '</ol>\n';
+            inOl = false;
+        }
+        if (inUl) {
+            htmlContent += '</ul>\n';
+            inUl = false;
+        }
+    };
+
+    for (const line of contentArray) {
+        const trimmedLine = line.trim();
+
+        const olMatch = trimmedLine.match(/^(\d+[\.\)])\s*(.*)/);
+        const ulMatch = trimmedLine.match(/^([*\-])\s*(.*)/);
+
+        if (olMatch) {
+            if (inUl) closeLists();
+            if (!inOl) {
+                htmlContent += '<ol>\n';
+                inOl = true;
+            }
+            htmlContent += `  <li>${olMatch[2]}</li>\n`;
+        } else if (ulMatch) {
+            if (inOl) closeLists();
+            if (!inUl) {
+                htmlContent += '<ul>\n';
+                inUl = true;
+            }
+            htmlContent += `  <li>${ulMatch[2]}</li>\n`;
+        } else {
+            closeLists();
+            if (trimmedLine) {
+                htmlContent += `<p>${trimmedLine}</p>\n`;
+            }
+        }
     }
-    
-    return articleData;
 
-  } catch (error) {
-    console.error("Error generating article content:", error);
-    throw new Error("Failed to generate article content. The AI service may be unavailable or the topic may be restricted.");
+    closeLists();
+
+    const articleContent: ArticleContent = {
+        title: parsedData.title,
+        content: htmlContent.trim(),
+        metaDescription: parsedData.metaDescription,
+        tags: parsedData.tags,
+        sources: sources
+    };
+
+    return articleContent;
+
+  } catch (e) {
+    console.error("Failed to generate article content:", e);
+    if (e instanceof Error) {
+      throw new Error(`AI content generation failed: ${e.message}`);
+    }
+    throw new Error("An unknown error occurred during AI content generation.");
   }
 };
 
-
-export const generateArticleImage = async (prompt: string): Promise<string | null> => {
+export const generateArticleImage = async (prompt: string, numberOfImages: number): Promise<string[]> => {
   try {
     const response = await ai.models.generateImages({
-      model: 'imagen-3.0-generate-002',
+      model: 'imagen-4.0-generate-001',
       prompt: prompt,
-      config: { numberOfImages: 1, outputMimeType: 'image/jpeg' },
+      config: {
+        numberOfImages: numberOfImages,
+        outputMimeType: 'image/jpeg',
+        aspectRatio: '16:9',
+      },
     });
-    
-    if (response.generatedImages && response.generatedImages.length > 0) {
-      const base64ImageBytes: string = response.generatedImages[0].image.imageBytes;
-      return `data:image/jpeg;base64,${base64ImageBytes}`;
+
+    if (!response.generatedImages || response.generatedImages.length === 0) {
+      throw new Error("The AI did not return any images. This can happen if the topic is sensitive and triggers safety filters. Please try a different topic or adjust the image style.");
     }
-    return null;
-  } catch (error) {
-    console.error("Error generating image:", error);
-    // Don't throw, just return null so the article can still be displayed.
-    return null;
+    
+    return response.generatedImages.map(img => `data:image/jpeg;base64,${img.image.imageBytes}`);
+
+  } catch (e) {
+    console.error("Failed to generate article image:", e);
+    if (e instanceof Error) {
+        if (e.message.includes('API_KEY_INVALID')) {
+             throw new Error("Image generation failed: The API key is invalid. Please check your configuration.");
+        }
+        throw new Error(`AI image generation failed: ${e.message}`);
+    }
+    throw new Error("An unknown error occurred during AI image generation.");
   }
 };
 
-const fetchTopics = async (prompt: string, errorContext: string): Promise<string[]> => {
-    try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                tools: prompt.includes("horoscope") ? [] : [{ googleSearch: {} }],
-                temperature: 0.5,
-            },
-        });
-        
-        const topics = parseJsonFromText<string[]>(response.text);
-        if (!Array.isArray(topics)) {
-             throw new Error("Parsed data is not an array.");
+
+const fetchTopics = async (prompt: string): Promise<string[]> => {
+  try {
+    const response: GenerateContentResponse = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            topics: {
+              type: Type.ARRAY,
+              description: 'A list of 5 news topic strings.',
+              items: { type: Type.STRING }
+            }
+          },
+          required: ['topics'],
         }
-        return topics.map(t => String(t));
+      },
+    });
 
-    } catch (error) {
-        console.error(`Error fetching ${errorContext}:`, error);
-        throw new Error(`Failed to fetch ${errorContext}. The AI returned an invalid format.`);
-    }
+    const data = parseJsonFromText<{ topics: string[] }>(response.text);
+    return data.topics;
+  } catch (e) {
+    console.error("Failed to fetch topics:", e);
+    throw new Error("Could not fetch trending topics from the AI service.");
+  }
 };
 
-export const fetchNationalTrendingTopics = async (): Promise<string[]> => {
-    const prompt = `
-        List 5 diverse and current news topics from Turkey or relevant to a Turkish audience.
-        The topics must be in Turkish.
-        Return ONLY a valid JSON array of strings.
-        Example: ["Türkiye'deki güncel ekonomi gelişmeleri", "Yeni yerli teknoloji ürünleri tanıtıldı", "Süper Lig'de son durum"].
-        Do not add any commentary, introduction, or markdown fences. Your entire response must be the JSON array itself.
-    `;
-    return fetchTopics(prompt, "national trending topics");
-};
+const baseTopicPrompt = "List 5 current and specific topics in";
 
-export const fetchWorldwideTrendingTopics = async (): Promise<string[]> => {
-    const prompt = `
-        List 5 diverse and current worldwide news topics.
-        The topics must be translated into Turkish.
-        Return ONLY a valid JSON array of strings.
-        Example: ["Uluslararası iklim değişikliği zirvesi sonuçları", "Asya borsalarında büyük hareketlilik", "Avrupa'da yeni teknoloji düzenlemeleri"].
-        Do not add any commentary, introduction, or markdown fences. Your entire response must be the JSON array itself.
-    `;
-    return fetchTopics(prompt, "worldwide trending topics");
-};
-
-export const fetchTechTrendingTopics = async (): Promise<string[]> => {
-    const prompt = `
-        List 5 diverse and current technology news topics. Include topics like new gadgets, software updates, AI advancements, and tech industry news.
-        The topics must be in Turkish.
-        Return ONLY a valid JSON array of strings.
-        Example: ["Yeni yapay zeka modeli tanıtıldı", "Son model akıllı telefonların özellikleri", "Türkiye'deki siber güvenlik tehditleri"].
-        Do not add any commentary, introduction, or markdown fences. Your entire response must be the JSON array itself.
-    `;
-    return fetchTopics(prompt, "tech trending topics");
-};
-
-export const fetchFamousSingerTopics = async (): Promise<string[]> => {
-    const prompt = `
-        List 5 diverse and interesting news topics about the lives of famous singers (can be from Turkey or worldwide). Include topics about their careers, personal lives, or recent events.
-        The topics must be in Turkish.
-        Return ONLY a valid JSON array of strings.
-        Example: ["Tarkan'ın yeni albümünün perde arkası", "Sezen Aksu'nun bilinmeyen bir anısı", "Genç bir pop yıldızının yükselişi", "Bir rock efsanesinin müziğe vedası"].
-        Do not add any commentary, introduction, or markdown fences. Your entire response must be the JSON array itself.
-    `;
-    return fetchTopics(prompt, "famous singer topics");
-};
-
-export const fetchHoroscopeTopics = async (): Promise<string[]> => {
-    const prompt = `
-        List 5 diverse and interesting topics related to horoscopes, astrology, or daily zodiac predictions.
-        The topics must be in Turkish.
-        Return ONLY a valid JSON array of strings.
-        Example: ["Haftalık burç yorumları: Aşk ve kariyer", "Bugünün astroloji haritası ve etkileri", "Yükselen burcunuza göre kişilik analizleri", "Dolunayın Koç burcuna etkileri"].
-        Do not add any commentary, introduction, or markdown fences. Your entire response must be the JSON array itself.
-    `;
-     try {
-        const response: GenerateContentResponse = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                temperature: 0.8,
-            },
-        });
-        
-        const topics = parseJsonFromText<string[]>(response.text);
-        if (!Array.isArray(topics)) {
-             throw new Error("Parsed data is not an array.");
-        }
-        return topics.map(t => String(t));
-
-    } catch (error) {
-        console.error("Error fetching horoscope topics:", error);
-        throw new Error("Failed to fetch horoscope topics. The AI returned an invalid format.");
-    }
-};
-
-export const fetchSportTrendingTopics = async (): Promise<string[]> => {
-    const prompt = `
-        List 5 diverse and current sports news topics, focusing on popular sports in Turkey like football and basketball.
-        The topics must be in Turkish.
-        Return ONLY a valid JSON array of strings.
-        Example: ["Süper Lig'de şampiyonluk yarışı kızıştı", "Basketbol milli takımı Avrupa'da", "Voleybolda Filenin Sultanları'nın son maçı"].
-        Do not add any commentary, introduction, or markdown fences. Your entire response must be the JSON array itself.
-    `;
-    return fetchTopics(prompt, "sport trending topics");
-};
+export const fetchNationalTrendingTopics = () => fetchTopics(`${baseTopicPrompt} Turkish national news. For example: 'New economic policies announced in Turkey' or 'Major cultural event in Istanbul'. Provide only real, significant, and recent events relevant to Turkey.`);
+export const fetchWorldNewsTopics = () => fetchTopics(`${baseTopicPrompt} world news. For example: 'Gaza humanitarian crisis update' or 'Venezuelan presidential election developments'. Provide only real, significant, and recent events.`);
+export const fetchTechTrendingTopics = () => fetchTopics(`${baseTopicPrompt} technology. For example: 'Launch of the latest iPhone model' or 'Breakthroughs in AI image generation'. Provide only real, significant, and recent topics.`);
+export const fetchEconomyTopics = () => fetchTopics(`${baseTopicPrompt} global or national economy. For example: 'US interest rate decisions by the Fed' or 'Impact of AI on the job market'. Provide only real, significant, and recent topics.`);
+export const fetchHealthTopics = () => fetchTopics(`${baseTopicPrompt} health and medicine. For example: 'New advancements in cancer treatment' or 'Global response to the latest flu variant'. Provide only real, significant, and recent topics.`);
+export const fetchScienceTopics = () => fetchTopics(`${baseTopicPrompt} science. For example: 'Latest discoveries from the James Webb Space Telescope' or 'Breakthroughs in quantum computing'. Provide only real, significant, and recent topics.`);
+export const fetchEntertainmentTopics = () => fetchTopics(`${baseTopicPrompt} entertainment. For example: 'Box office results for the latest blockbuster movie' or 'Major announcements from the latest comic-con event'. Provide only real, significant, and recent topics.`);
+export const fetchHoroscopeTopics = () => fetchTopics("List 5 horoscope-related article ideas. For example: 'How the upcoming mercury retrograde will affect Gemini' or 'Best career paths for a Leo'.");
+export const fetchSportTrendingTopics = () => fetchTopics(`${baseTopicPrompt} sports. For example: 'Results of the Champions League final' or 'Major transfer news in the Premier League'. Provide only real, significant, and recent events.`);
