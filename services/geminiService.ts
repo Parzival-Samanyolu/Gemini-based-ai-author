@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import { Tone, ArticleContent, Source } from '../types';
 
@@ -17,16 +18,33 @@ const parseJsonFromText = <T,>(text: string): T => {
     jsonStr = match[2].trim();
   }
   
-  // If no fences, or after stripping them, there might still be text before the JSON
   const firstBracket = jsonStr.indexOf('[');
   const firstBrace = jsonStr.indexOf('{');
   
-  // Find the start of the actual JSON data
+  let start = -1;
   if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
-      jsonStr = jsonStr.substring(firstBracket);
+      start = firstBracket;
   } else if (firstBrace !== -1) {
-      jsonStr = jsonStr.substring(firstBrace);
+      start = firstBrace;
   }
+
+  if (start === -1) {
+      console.error("Could not find start of JSON ('{' or '[') in response. Original text:", text);
+      throw new Error("The AI returned an invalid data format. Please try again.");
+  }
+
+  const lastBracket = jsonStr.lastIndexOf(']');
+  const lastBrace = jsonStr.lastIndexOf('}');
+  
+  const end = Math.max(lastBracket, lastBrace);
+
+  if (end === -1) {
+      console.error("Could not find end of JSON ('}' or ']') in response. Original text:", text);
+      throw new Error("The AI returned an invalid data format. Please try again.");
+  }
+  
+  // Take the substring from the first opening brace/bracket to the last closing brace/bracket
+  jsonStr = jsonStr.substring(start, end + 1);
   
   try {
     return JSON.parse(jsonStr) as T;
