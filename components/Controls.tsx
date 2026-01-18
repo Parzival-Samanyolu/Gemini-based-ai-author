@@ -94,184 +94,221 @@ const Controls: React.FC<ControlsProps> = ({
       site.creds.password === wordPressCreds.password
   )?.name || '';
   
-  const inputStyles = "block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-200 shadow-sm focus:border-indigo-500 dark:focus:border-indigo-400 focus:ring-indigo-500 dark:focus:ring-indigo-400 sm:text-sm transition-colors duration-300";
-  const labelStyles = "block text-sm font-medium text-gray-700 dark:text-gray-300";
-  const checkboxLabelStyles = "ml-2 block text-sm text-gray-900 dark:text-gray-200";
-  const checkboxStyles = "h-4 w-4 rounded border-gray-300 dark:border-gray-500 bg-gray-100 dark:bg-gray-600 text-indigo-600 focus:ring-indigo-500 dark:focus:ring-offset-gray-800";
-  const buttonBaseStyles = "w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:cursor-not-allowed transition-colors";
-  const fetchingText = isFetchingTopics ? '...' : '';
-
-
+  // Styles
+  const panelStyles = "bg-gray-900/40 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-2xl space-y-6";
+  const inputStyles = "block w-full rounded-lg border border-gray-700 bg-gray-800/50 text-white shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 sm:text-sm transition-all duration-200 py-2.5 placeholder-gray-500";
+  const labelStyles = "block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5";
+  const sectionHeaderStyles = "text-sm font-bold text-white uppercase tracking-wider flex items-center pb-2 border-b border-white/5";
+  const checkboxLabelStyles = "ml-2.5 block text-sm text-gray-300 select-none";
+  const checkboxStyles = "h-4 w-4 rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-offset-gray-900 focus:ring-blue-500 cursor-pointer";
+  
+  // Topic Button Styles - Modern Pills
+  const topicBtnBase = "w-full py-2 px-1 rounded-lg text-[10px] sm:text-xs font-medium text-gray-300 bg-gray-800/50 hover:bg-gray-700 hover:text-white border border-white/5 hover:border-white/10 transition-all duration-200";
+  
   return (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg space-y-6 transition-colors duration-300">
+    <div className={panelStyles}>
       {/* Topic Section */}
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div>
-          <label className={`${labelStyles} mb-2`}>
-            Find News Topics
-          </label>
-          <div className="grid grid-cols-3 gap-2">
-            <button onClick={onFetchNationalTopics} disabled={isFetchingTopics} className={`${buttonBaseStyles} bg-teal-600 hover:bg-teal-700 focus:ring-teal-500 disabled:bg-teal-400/80 dark:disabled:bg-teal-500/50`}>{fetchingText || 'National'}</button>
-            <button onClick={onFetchWorldNewsTopics} disabled={isFetchingTopics} className={`${buttonBaseStyles} bg-sky-600 hover:bg-sky-700 focus:ring-sky-500 disabled:bg-sky-400/80 dark:disabled:bg-sky-500/50`}>{fetchingText || 'World News'}</button>
-            <button onClick={onFetchTechTopics} disabled={isFetchingTopics} className={`${buttonBaseStyles} bg-slate-600 hover:bg-slate-700 focus:ring-slate-500 disabled:bg-slate-400/80 dark:disabled:bg-slate-500/50`}>{fetchingText || 'Tech'}</button>
-            <button onClick={onFetchEconomyTopics} disabled={isFetchingTopics} className={`${buttonBaseStyles} bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500 disabled:bg-emerald-400/80 dark:disabled:bg-emerald-500/50`}>{fetchingText || 'Economy'}</button>
-            <button onClick={onFetchHealthTopics} disabled={isFetchingTopics} className={`${buttonBaseStyles} bg-rose-600 hover:bg-rose-700 focus:ring-rose-500 disabled:bg-rose-400/80 dark:disabled:bg-rose-500/50`}>{fetchingText || 'Health'}</button>
-            <button onClick={onFetchScienceTopics} disabled={isFetchingTopics} className={`${buttonBaseStyles} bg-amber-600 hover:bg-amber-700 focus:ring-amber-500 disabled:bg-amber-400/80 dark:disabled:bg-amber-500/50`}>{fetchingText || 'Science'}</button>
-            <button onClick={onFetchEntertainmentTopics} disabled={isFetchingTopics} className={`${buttonBaseStyles} bg-pink-600 hover:bg-pink-700 focus:ring-pink-500 disabled:bg-pink-400/80 dark:disabled:bg-pink-500/50`}>{fetchingText || 'Entertainment'}</button>
-            <button onClick={onFetchHoroscopeTopics} disabled={isFetchingTopics} className={`${buttonBaseStyles} bg-purple-600 hover:bg-purple-700 focus:ring-purple-500 disabled:bg-purple-400/80 dark:disabled:bg-purple-500/50`}>{fetchingText || 'Horoscope'}</button>
-            <button onClick={onFetchSportTopics} disabled={isFetchingTopics} className={`${buttonBaseStyles} bg-blue-600 hover:bg-blue-700 focus:ring-blue-500 disabled:bg-blue-400/80 dark:disabled:bg-blue-500/50`}>{fetchingText || 'Sport'}</button>
+          <h3 className={sectionHeaderStyles}>
+             <svg className="w-4 h-4 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+             Intelligence Sources
+          </h3>
+          <div className="grid grid-cols-3 gap-2 mt-3">
+            <button onClick={onFetchNationalTopics} disabled={isFetchingTopics} className={topicBtnBase}>Turkey</button>
+            <button onClick={onFetchWorldNewsTopics} disabled={isFetchingTopics} className={topicBtnBase}>World</button>
+            <button onClick={onFetchTechTopics} disabled={isFetchingTopics} className={topicBtnBase}>Tech</button>
+            <button onClick={onFetchEconomyTopics} disabled={isFetchingTopics} className={topicBtnBase}>Economy</button>
+            <button onClick={onFetchHealthTopics} disabled={isFetchingTopics} className={topicBtnBase}>Health</button>
+            <button onClick={onFetchScienceTopics} disabled={isFetchingTopics} className={topicBtnBase}>Science</button>
+            <button onClick={onFetchEntertainmentTopics} disabled={isFetchingTopics} className={topicBtnBase}>Pop Culture</button>
+            <button onClick={onFetchHoroscopeTopics} disabled={isFetchingTopics} className={topicBtnBase}>Astro</button>
+            <button onClick={onFetchSportTopics} disabled={isFetchingTopics} className={topicBtnBase}>Sport</button>
           </div>
         </div>
+
         {trendingTopics.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Click a topic to use it:</p>
+          <div className="bg-blue-900/10 p-3 rounded-xl border border-blue-500/20">
+            <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2 flex items-center">
+               Trending Now
+            </p>
             <div className="flex flex-wrap gap-2">
               {trendingTopics.map((t, i) => (
-                <button key={i} onClick={() => setTopic(t)} className="px-2 py-1 text-xs bg-gray-200 text-gray-800 rounded-full hover:bg-indigo-200 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-indigo-500 transition-colors">
+                <button 
+                    key={i} 
+                    onClick={() => setTopic(t)} 
+                    className="px-3 py-1 text-xs font-medium bg-gray-800 text-gray-300 rounded-full border border-gray-700 hover:border-blue-500 hover:text-blue-400 transition-colors text-left truncate max-w-full"
+                >
                   {t}
                 </button>
               ))}
             </div>
           </div>
         )}
+
         <div>
           <label htmlFor="topic" className={labelStyles}>
-            News Topic
+            Topic / Prompt
           </label>
-          <textarea
-            id="topic"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder="...or enter your own topic"
-            rows={3}
-            className={`mt-1 ${inputStyles}`}
-          />
+          <div className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-20 group-hover:opacity-40 transition duration-200"></div>
+            <textarea
+                id="topic"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="Describe the story you want Gemini to write..."
+                rows={3}
+                className={`${inputStyles} relative bg-gray-900 resize-none focus:ring-0 border-transparent`}
+            />
+          </div>
         </div>
       </div>
 
       {/* Generation Options */}
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4">
-         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Generation Options</h3>
-        <div>
-          <label htmlFor="tone" className={labelStyles}>Article Tone</label>
-          <select id="tone" value={tone} onChange={(e) => setTone(e.target.value as Tone)} className={`mt-1 ${inputStyles}`}>
-            {Object.values(Tone).map((t) => (<option key={t} value={t}>{t}</option>))}
-          </select>
-        </div>
-        <div className="flex items-center">
-          <input id="include-image" type="checkbox" checked={includeImage} onChange={(e) => setIncludeImage(e.target.checked)} className={checkboxStyles} />
-          <label htmlFor="include-image" className={checkboxLabelStyles}>Include AI-generated image</label>
-        </div>
-        {includeImage && (
-          <div className="pl-6 space-y-4">
+      <div className="pt-2 space-y-5">
+         <h3 className={sectionHeaderStyles}>
+            <svg className="w-4 h-4 mr-2 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+            Configuration
+         </h3>
+        
+        <div className="grid grid-cols-1 gap-4">
             <div>
-                <label htmlFor="imageStyle" className={labelStyles}>Image Style</label>
-                <select id="imageStyle" value={imageStyle} onChange={(e) => setImageStyle(e.target.value as ImageStyle)} className={`mt-1 ${inputStyles}`}>
-                    {Object.values(ImageStyle).map((s) => (<option key={s} value={s}>{s}</option>))}
+                <label htmlFor="tone" className={labelStyles}>Tone & Voice</label>
+                <select id="tone" value={tone} onChange={(e) => setTone(e.target.value as Tone)} className={inputStyles}>
+                    {Object.values(Tone).map((t) => (<option key={t} value={t}>{t}</option>))}
                 </select>
             </div>
-            <div>
-              <label htmlFor="numberOfImages" className={labelStyles}>Number of Images</label>
-              <select 
-                id="numberOfImages" 
-                value={numberOfImages} 
-                onChange={(e) => setNumberOfImages(parseInt(e.target.value, 10))} 
-                className={`mt-1 ${inputStyles}`}
-              >
-                <option value={1}>1</option>
-                <option value={2}>2</option>
-                <option value={3}>3</option>
-                <option value={4}>4</option>
-              </select>
-            </div>
-            <div>
-                <label htmlFor="imageCredit" className={labelStyles}>Image Credit / Watermark</label>
-                <input 
-                  type="text"
-                  id="imageCredit"
-                  value={imageCredit}
-                  onChange={(e) => setImageCredit(e.target.value)}
-                  placeholder="e.g., Your News Site"
-                  className={`mt-1 ${inputStyles}`}
-                />
-            </div>
-          </div>
-        )}
-        <div className="flex items-center">
-          <input id="include-tags" type="checkbox" checked={includeTags} onChange={(e) => setIncludeTags(e.target.checked)} className={checkboxStyles} />
-          <label htmlFor="include-tags" className={checkboxLabelStyles}>Include AI-generated tags</label>
         </div>
-        <div className="flex items-center">
-          <input id="enable-editor" type="checkbox" checked={isEditorEnabled} onChange={(e) => setIsEditorEnabled(e.target.checked)} className={checkboxStyles} />
-          <label htmlFor="enable-editor" className={checkboxLabelStyles}>Enable rich text editor</label>
+
+        <div className="bg-gray-800/30 rounded-xl p-4 space-y-4 border border-white/5">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                    <input id="include-image" type="checkbox" checked={includeImage} onChange={(e) => setIncludeImage(e.target.checked)} className={checkboxStyles} />
+                    <label htmlFor="include-image" className={checkboxLabelStyles}>Generate Image (Imagen 4)</label>
+                </div>
+            </div>
+            
+            {includeImage && (
+            <div className="pl-6 space-y-4 animate-fadeIn">
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="imageStyle" className="text-[10px] font-medium text-gray-500 uppercase mb-1 block">Style</label>
+                        <select id="imageStyle" value={imageStyle} onChange={(e) => setImageStyle(e.target.value as ImageStyle)} className={`${inputStyles} py-1.5 text-xs`}>
+                            {Object.values(ImageStyle).map((s) => (<option key={s} value={s}>{s}</option>))}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="numberOfImages" className="text-[10px] font-medium text-gray-500 uppercase mb-1 block">Count</label>
+                        <select id="numberOfImages" value={numberOfImages} onChange={(e) => setNumberOfImages(parseInt(e.target.value, 10))} className={`${inputStyles} py-1.5 text-xs`}>
+                            {[1,2,3,4].map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label htmlFor="imageCredit" className="text-[10px] font-medium text-gray-500 uppercase mb-1 block">Watermark Text</label>
+                    <input 
+                    type="text"
+                    id="imageCredit"
+                    value={imageCredit}
+                    onChange={(e) => setImageCredit(e.target.value)}
+                    placeholder="e.g. Samanyolu Haber"
+                    className={`${inputStyles} py-1.5 text-xs`}
+                    />
+                </div>
+            </div>
+            )}
         </div>
-        <button onClick={onGenerate} disabled={isLoading || !topic.trim()} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400 dark:disabled:bg-indigo-500/50 disabled:cursor-not-allowed transition-colors">
-          {isLoading ? 'Generating...' : 'Generate News'}
+
+        <div className="flex items-center justify-between px-1">
+            <div className="flex items-center">
+                <input id="include-tags" type="checkbox" checked={includeTags} onChange={(e) => setIncludeTags(e.target.checked)} className={checkboxStyles} />
+                <label htmlFor="include-tags" className={checkboxLabelStyles}>SEO Tags</label>
+            </div>
+            <div className="flex items-center">
+                <input id="enable-editor" type="checkbox" checked={isEditorEnabled} onChange={(e) => setIsEditorEnabled(e.target.checked)} className={checkboxStyles} />
+                <label htmlFor="enable-editor" className={checkboxLabelStyles}>Rich Editor</label>
+            </div>
+        </div>
+
+        <button 
+            onClick={onGenerate} 
+            disabled={isLoading || !topic.trim()} 
+            className="w-full relative group overflow-hidden py-4 px-4 rounded-xl shadow-lg text-white font-bold text-sm tracking-wide uppercase transition-all duration-300 transform hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed"
+        >
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 animate-shimmer bg-[length:200%_100%]"></div>
+            <div className="relative flex items-center justify-center">
+               {isLoading ? (
+                   <>Processing Request...</>
+               ) : (
+                   <>
+                    <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                    Initialize Construction
+                   </>
+               )}
+            </div>
         </button>
       </div>
 
       {/* WordPress Credentials */}
-      <div className="border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4">
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">WordPress Publisher</h3>
+      <div className="pt-4 space-y-5">
+        <h3 className={sectionHeaderStyles}>
+             <svg className="w-4 h-4 mr-2 text-blue-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12.013 0C5.392 0 0 5.38 0 12.013c0 6.62 5.38 12.013 12.013 12.013 6.62 0 12.013-5.38 12.013-12.013C24.026 5.392 18.645 0 12.013 0zm0 23.24c-1.343 0-2.622-.23-3.82-.648 2.066-3.615 3.19-6.577 3.884-9.972.087-.403.15-.807.2-1.225.766 3.347 2.183 6.772 4.294 9.492-1.377.948-3.033 1.512-4.82 1.512v.84zm0-22.436c1.455 0 2.84.33 4.088.91L12.59 12.05c-.4-2.93-1.313-5.84-2.563-8.546 1.03-.298 2.13-.46 3.27-.46h-.712zm-9.99 18.914c-1.06-1.722-1.68-3.75-1.68-5.933 0-4.152 2.13-7.833 5.373-9.934l-4.46 12.237.767 3.63zM20.924 4.52c1.592 2.08 2.54 4.7 2.54 7.547 0 2.553-.79 4.92-2.13 6.885l.088.432-4.735-13.73c1.382-.734 2.884-1.134 4.237-1.134z"/></svg>
+             Deployment Target
+        </h3>
         
         <div>
-            <label htmlFor="preconfiguredSite" className={labelStyles}>Quick Select Site</label>
+            <label htmlFor="preconfiguredSite" className={labelStyles}>Quick Select</label>
             <select 
               id="preconfiguredSite"
               value={currentSiteName}
               onChange={handleSiteSelect} 
-              className={`mt-1 ${inputStyles}`}
+              className={inputStyles}
             >
-              <option value="">-- Manual Entry --</option>
+              <option value="">-- Custom Site --</option>
               {preconfiguredSites.map(site => (
                 <option key={site.name} value={site.name}>{site.name}</option>
               ))}
             </select>
         </div>
-
-        <p className="text-xs text-gray-500 dark:text-gray-400 !mt-2">Requires an <a href="https://wordpress.org/documentation/article/application-passwords/" target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline">Application Password</a>.</p>
         
-        <div>
-          <label htmlFor="siteUrl" className={labelStyles}>WordPress Site URL</label>
-          <input type="text" name="siteUrl" id="siteUrl" value={wordPressCreds.siteUrl} onChange={handleCredsChange} placeholder="https://example.com" className={`mt-1 ${inputStyles}`} />
-        </div>
-        <div>
-          <label htmlFor="username" className={labelStyles}>WordPress Username</label>
-          <input type="text" name="username" id="username" value={wordPressCreds.username} onChange={handleCredsChange} placeholder="your-wp-username" className={`mt-1 ${inputStyles}`} />
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">User must have 'Editor' or 'Administrator' role to publish directly.</p>
-        </div>
-        <div>
-          <label htmlFor="password"  className={labelStyles}>Application Password</label>
-          <input type="password" name="password" id="password" value={wordPressCreds.password} onChange={handleCredsChange} placeholder="xxxx xxxx xxxx xxxx" className={`mt-1 ${inputStyles}`} />
-        </div>
-
-        <div>
-            <label htmlFor="publishStatus" className={labelStyles}>Publication Status</label>
-            <select 
-                id="publishStatus" 
-                value={publishStatus} 
-                onChange={(e) => setPublishStatus(e.target.value as WordPressPublicationStatus)} 
-                className={`mt-1 ${inputStyles}`}
-            >
-                <option value={WordPressPublicationStatus.Draft}>Save as Draft</option>
-                <option value={WordPressPublicationStatus.Publish}>Publish Immediately</option>
-            </select>
-        </div>
-        
-        {publishStatus === WordPressPublicationStatus.Publish && (
-            <div className="pl-4 border-l-2 border-gray-200 dark:border-gray-600 transition-all duration-300">
-                <label htmlFor="scheduleDate" className={labelStyles}>Publish Date/Time (Optional)</label>
-                <input
-                    type="datetime-local"
-                    id="scheduleDate"
-                    value={scheduleDate}
-                    onChange={(e) => setScheduleDate(e.target.value)}
-                    className={`mt-1 ${inputStyles}`}
-                    min={new Date().toISOString().slice(0, 16)}
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Leave blank to publish now. Set a future date to schedule the post.</p>
+        <div className="space-y-3">
+            <div>
+                <input type="text" name="siteUrl" id="siteUrl" value={wordPressCreds.siteUrl} onChange={handleCredsChange} placeholder="Site URL (https://...)" className={inputStyles} />
             </div>
-        )}
+            <div className="grid grid-cols-2 gap-3">
+                <input type="text" name="username" id="username" value={wordPressCreds.username} onChange={handleCredsChange} placeholder="Username" className={inputStyles} />
+                <input type="password" name="password" id="password" value={wordPressCreds.password} onChange={handleCredsChange} placeholder="App Password" className={inputStyles} />
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4">
+            <div>
+                <label htmlFor="publishStatus" className={labelStyles}>Status</label>
+                <select 
+                    id="publishStatus" 
+                    value={publishStatus} 
+                    onChange={(e) => setPublishStatus(e.target.value as WordPressPublicationStatus)} 
+                    className={inputStyles}
+                >
+                    <option value={WordPressPublicationStatus.Draft}>Draft</option>
+                    <option value={WordPressPublicationStatus.Publish}>Publish</option>
+                </select>
+            </div>
+            
+            {publishStatus === WordPressPublicationStatus.Publish && (
+                <div className="animate-fadeIn">
+                    <label htmlFor="scheduleDate" className={labelStyles}>Schedule (Optional)</label>
+                    <input
+                        type="datetime-local"
+                        id="scheduleDate"
+                        value={scheduleDate}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                        className={inputStyles}
+                        min={new Date().toISOString().slice(0, 16)}
+                    />
+                </div>
+            )}
+        </div>
 
         <div className="flex items-center pt-2">
             <input 
@@ -281,7 +318,7 @@ const Controls: React.FC<ControlsProps> = ({
               onChange={(e) => setSetHaberCategory(e.target.checked)} 
               className={checkboxStyles}
             />
-            <label htmlFor="set-haber-category" className={checkboxLabelStyles}>Set category as "Haber"</label>
+            <label htmlFor="set-haber-category" className={checkboxLabelStyles}>Add "Haber" Category</label>
         </div>
       </div>
     </div>

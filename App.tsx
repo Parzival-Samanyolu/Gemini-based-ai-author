@@ -22,54 +22,7 @@ import Loader from './components/Loader';
 import ErrorDisplay from './components/ErrorDisplay';
 
 // --- Theme Management ---
-type Theme = 'light' | 'dark';
-
-interface ThemeContextType {
-  theme: Theme;
-  toggleTheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
-const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window !== 'undefined') {
-      const storedTheme = localStorage.getItem('theme');
-      if (storedTheme === 'light' || storedTheme === 'dark') {
-        return storedTheme;
-      }
-      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    return 'light';
-  });
-
-  useEffect(() => {
-    const root = window.document.documentElement;
-    root.classList.remove(theme === 'light' ? 'dark' : 'light');
-    root.classList.add(theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
-  };
-
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  );
-};
-
-export const useTheme = (): ThemeContextType => {
-  const context = useContext(ThemeContext);
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
-};
-// --- End Theme Management ---
-
+type Theme = 'dark'; // Enforcing dark theme for Gemini aesthetic
 
 const AppContent: React.FC = () => {
   const [topic, setTopic] = useState<string>('');
@@ -96,6 +49,11 @@ const AppContent: React.FC = () => {
   const [generatedArticle, setGeneratedArticle] = useState<Article | null>(null);
   const [isRegeneratingImages, setIsRegeneratingImages] = useState<boolean>(false);
   const [isEditorEnabled, setIsEditorEnabled] = useState<boolean>(true);
+
+  // Force dark class on body
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+  }, []);
 
   const fetchTopics = useCallback(async (fetcher: () => Promise<string[]>) => {
     setIsFetchingTopics(true);
@@ -195,7 +153,7 @@ const AppContent: React.FC = () => {
         );
         setGeneratedArticle(prev => prev ? { ...prev, imageUrls: newImageUrlsWithTitle } : null);
       } else {
-        setError('Could not regenerate images. The AI service might be unavailable.');
+        setError('Could not regenerate images. Gemini might be unavailable.');
       }
     } catch (e) {
       console.error(e);
@@ -214,7 +172,6 @@ const AppContent: React.FC = () => {
     const articleForPost = { ...generatedArticle };
     
     try {
-      // Step 1: Upload images to WP Media Library if they exist
       if (includeImage && generatedArticle.imageUrls.length > 0) {
         setPostStatus(PostStatus.UploadingImage);
 
@@ -233,21 +190,18 @@ const AppContent: React.FC = () => {
                     .map(media => `<figure class="wp-block-image size-large"><img src="${media.source_url}" alt="${generatedArticle.title}"/></figure>`)
                     .join('\n');
                 
-                // Insert images after the first paragraph for better layout.
                 const content = articleForPost.content;
                 const insertionPoint = content.indexOf('</p>');
                 if (insertionPoint !== -1) {
-                    const position = insertionPoint + 4; // after the </p> tag
+                    const position = insertionPoint + 4;
                     articleForPost.content = content.slice(0, position) + '\n' + additionalImagesHtml + '\n' + content.slice(position);
                 } else {
-                    // Fallback: if no paragraph tag, prepend images so they are visible at the top.
                     articleForPost.content = additionalImagesHtml + '\n' + content;
                 }
             }
         }
       }
       
-      // Step 2: Post the article content with the featured media ID
       setPostStatus(PostStatus.Posting);
       await postToWordPress(wordPressCreds, articleForPost, featuredMediaId, setHaberCategory, publishStatus, scheduleDate);
 
@@ -257,19 +211,10 @@ const AppContent: React.FC = () => {
       setPostStatus(PostStatus.Error);
       
       let finalErrorMessage = e instanceof Error ? e.message : 'An unknown error occurred while posting.';
-
-      // Check for specific WordPress permission errors (in English and Turkish)
-      const permissionErrorKeywords = [
-          "izin verilmiyor", // Turkish for "not allowed"
-          "not allowed to create",
-          "not allowed to edit",
-          "cannot create",
-          "forbidden",
-          "unauthorized"
-      ];
+      const permissionErrorKeywords = ["izin verilmiyor", "not allowed", "forbidden", "unauthorized"];
 
       if (permissionErrorKeywords.some(keyword => finalErrorMessage.toLowerCase().includes(keyword))) {
-          finalErrorMessage = `WordPress Permission Error: The specified user cannot create or edit posts. Please check that the user has the 'Author', 'Editor' or 'Administrator' role assigned in your WordPress dashboard. Also, verify that no security plugins are blocking REST API requests. (Original error: ${finalErrorMessage})`;
+          finalErrorMessage = `WordPress Permission Error: ${finalErrorMessage}`;
       }
       
       setPostError(finalErrorMessage);
@@ -280,108 +225,122 @@ const AppContent: React.FC = () => {
   
   const getPostButtonText = () => {
     switch (postStatus) {
-      case PostStatus.UploadingImage: return 'Uploading Image(s)...';
-      case PostStatus.Posting: return 'Posting Article...';
+      case PostStatus.UploadingImage: return 'Uploading Assets...';
+      case PostStatus.Posting: return 'Publishing...';
       default: 
         if (publishStatus === WordPressPublicationStatus.Publish && scheduleDate && new Date(scheduleDate) > new Date()) {
           return 'Schedule Post';
         }
-        return publishStatus === WordPressPublicationStatus.Publish ? 'Publish to WordPress' : 'Post to WordPress as Draft';
+        return publishStatus === WordPressPublicationStatus.Publish ? 'Publish to WordPress' : 'Save Draft to WordPress';
     }
-  }
-
-  const getSuccessMessage = () => {
-    if (publishStatus === WordPressPublicationStatus.Publish && scheduleDate && new Date(scheduleDate) > new Date()) {
-        return "Successfully scheduled post on WordPress! Check your 'Posts' section."
-    }
-    return `Successfully posted to WordPress! Check your 'Posts' section for the new ${publishStatus === WordPressPublicationStatus.Publish ? 'post' : 'draft'}.`
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 font-sans transition-colors duration-300">
-      <Header />
-      <main className="container mx-auto p-4 md:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-4">
-            <Controls
-              topic={topic}
-              setTopic={setTopic}
-              tone={tone}
-              setTone={setTone}
-              includeImage={includeImage}
-              setIncludeImage={setIncludeImage}
-              imageStyle={imageStyle}
-              setImageStyle={setImageStyle}
-              numberOfImages={numberOfImages}
-              setNumberOfImages={setNumberOfImages}
-              imageCredit={imageCredit}
-              setImageCredit={setImageCredit}
-              includeTags={includeTags}
-              setIncludeTags={setIncludeTags}
-              onGenerate={handleGenerate}
-              isLoading={isLoading}
-              trendingTopics={trendingTopics}
-              onFetchNationalTopics={handleFetchNationalTopics}
-              onFetchWorldNewsTopics={handleFetchWorldNewsTopics}
-              onFetchTechTopics={handleFetchTechTopics}
-              onFetchEconomyTopics={handleFetchEconomyTopics}
-              onFetchHealthTopics={handleFetchHealthTopics}
-              onFetchScienceTopics={handleFetchScienceTopics}
-              onFetchEntertainmentTopics={handleFetchEntertainmentTopics}
-              onFetchHoroscopeTopics={handleFetchHoroscopeTopics}
-              onFetchSportTopics={handleFetchSportTopics}
-              isFetchingTopics={isFetchingTopics}
-              wordPressCreds={wordPressCreds}
-              setWordPressCreds={setWordPressCreds}
-              setHaberCategory={setHaberCategory}
-              setSetHaberCategory={setSetHaberCategory}
-              publishStatus={publishStatus}
-              setPublishStatus={setPublishStatus}
-              scheduleDate={scheduleDate}
-              setScheduleDate={setScheduleDate}
-              isEditorEnabled={isEditorEnabled}
-              setIsEditorEnabled={setIsEditorEnabled}
-            />
+    <div className="min-h-screen bg-[#0B101B] font-sans text-gray-100 relative overflow-hidden selection:bg-purple-500/30">
+      {/* Deep Space Background Effects */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-20%] left-[-10%] w-[800px] h-[800px] rounded-full bg-blue-600/10 blur-[120px]" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[800px] h-[800px] rounded-full bg-purple-600/10 blur-[120px]" />
+        <div className="absolute top-[40%] left-[40%] w-[500px] h-[500px] rounded-full bg-indigo-600/5 blur-[100px]" />
+      </div>
+
+      <div className="relative z-10">
+        <Header />
+        <main className="container mx-auto p-4 md:p-8 max-w-7xl">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-4">
+              <Controls
+                topic={topic}
+                setTopic={setTopic}
+                tone={tone}
+                setTone={setTone}
+                includeImage={includeImage}
+                setIncludeImage={setIncludeImage}
+                imageStyle={imageStyle}
+                setImageStyle={setImageStyle}
+                numberOfImages={numberOfImages}
+                setNumberOfImages={setNumberOfImages}
+                imageCredit={imageCredit}
+                setImageCredit={setImageCredit}
+                includeTags={includeTags}
+                setIncludeTags={setIncludeTags}
+                onGenerate={handleGenerate}
+                isLoading={isLoading}
+                trendingTopics={trendingTopics}
+                onFetchNationalTopics={handleFetchNationalTopics}
+                onFetchWorldNewsTopics={handleFetchWorldNewsTopics}
+                onFetchTechTopics={handleFetchTechTopics}
+                onFetchEconomyTopics={handleFetchEconomyTopics}
+                onFetchHealthTopics={handleFetchHealthTopics}
+                onFetchScienceTopics={handleFetchScienceTopics}
+                onFetchEntertainmentTopics={handleFetchEntertainmentTopics}
+                onFetchHoroscopeTopics={handleFetchHoroscopeTopics}
+                onFetchSportTopics={handleFetchSportTopics}
+                isFetchingTopics={isFetchingTopics}
+                wordPressCreds={wordPressCreds}
+                setWordPressCreds={setWordPressCreds}
+                setHaberCategory={setHaberCategory}
+                setSetHaberCategory={setSetHaberCategory}
+                publishStatus={publishStatus}
+                setPublishStatus={setPublishStatus}
+                scheduleDate={scheduleDate}
+                setScheduleDate={setScheduleDate}
+                isEditorEnabled={isEditorEnabled}
+                setIsEditorEnabled={setIsEditorEnabled}
+              />
+            </div>
+            <div className="lg:col-span-8 space-y-6">
+              {isLoading && <Loader />}
+              {error && <ErrorDisplay message={error} />}
+              {generatedArticle && (
+                <div className="animate-fadeIn space-y-6">
+                  <ArticlePreview 
+                    article={generatedArticle}
+                    onContentChange={handleArticleContentChange}
+                    onRegenerateImages={handleRegenerateImages}
+                    isRegeneratingImages={isRegeneratingImages}
+                    isEditorEnabled={isEditorEnabled}
+                  />
+                  {isPostable && (
+                    <div className="bg-gray-900/40 backdrop-blur-xl rounded-2xl p-6 border border-white/5 shadow-xl">
+                       <button
+                          onClick={handlePost}
+                          disabled={postStatus === PostStatus.Posting || postStatus === PostStatus.UploadingImage}
+                          className="w-full group relative flex justify-center py-4 px-6 border border-transparent rounded-xl text-lg font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-lg shadow-blue-900/30 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                       >
+                          <span className="relative flex items-center gap-2">
+                            {postStatus === PostStatus.Success ? (
+                               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                            ) : (
+                               <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                            )}
+                            {getPostButtonText()}
+                          </span>
+                       </button>
+                       {postStatus === PostStatus.Success && <p className="mt-4 text-center text-emerald-400 font-medium">{getSuccessMessage()}</p>}
+                       {postStatus === PostStatus.Error && postError && <div className="mt-4"><ErrorDisplay message={postError} /></div>}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="lg:col-span-8 space-y-6">
-            {isLoading && <Loader />}
-            {error && <ErrorDisplay message={error} />}
-            {generatedArticle && (
-              <>
-                <ArticlePreview 
-                  article={generatedArticle}
-                  onContentChange={handleArticleContentChange}
-                  onRegenerateImages={handleRegenerateImages}
-                  isRegeneratingImages={isRegeneratingImages}
-                  isEditorEnabled={isEditorEnabled}
-                />
-                {isPostable && (
-                  <div className="mt-6">
-                     <button
-                        onClick={handlePost}
-                        disabled={postStatus === PostStatus.Posting || postStatus === PostStatus.UploadingImage}
-                        className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-green-400 dark:disabled:bg-green-500/50 disabled:cursor-not-allowed transition-colors"
-                     >
-                        {getPostButtonText()}
-                     </button>
-                     {postStatus === PostStatus.Success && <p className="mt-2 text-sm text-green-600 dark:text-green-400">{getSuccessMessage()}</p>}
-                     {postStatus === PostStatus.Error && postError && <ErrorDisplay message={postError} />}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
+
+  function getSuccessMessage() {
+    if (publishStatus === WordPressPublicationStatus.Publish && scheduleDate && new Date(scheduleDate) > new Date()) {
+        return "Successfully scheduled post on WordPress!"
+    }
+    return `Successfully posted to WordPress!`
+  }
 };
 
 const App: React.FC = () => {
   return (
-    <ThemeProvider>
-      <AppContent />
-    </ThemeProvider>
+    <AppContent />
   );
 };
 

@@ -1,6 +1,6 @@
-
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Article } from '../types';
+import HtmlOutput from './HtmlOutput';
 
 interface ArticlePreviewProps {
   article: Article;
@@ -11,11 +11,11 @@ interface ArticlePreviewProps {
 }
 
 const ArticlePreview: React.FC<ArticlePreviewProps> = ({ article, onContentChange, onRegenerateImages, isRegeneratingImages, isEditorEnabled }) => {
+  const [showHtml, setShowHtml] = useState(false);
   const hasImages = article.imageUrls && article.imageUrls.length > 0;
   const editorRef = useRef<HTMLDivElement>(null);
 
-  // Sync external changes (like article regeneration) to the editor,
-  // but avoid resetting the content if it's identical, which would cause cursor jumps.
+  // Sync external changes
   useEffect(() => {
     const editor = editorRef.current;
     if (editor && editor.innerHTML !== article.content) {
@@ -27,170 +27,142 @@ const ArticlePreview: React.FC<ArticlePreviewProps> = ({ article, onContentChang
     onContentChange(e.currentTarget.innerHTML);
   };
   
-  // Use the legacy document.execCommand for rich text actions, as it requires no external dependencies.
   const execCmd = (command: string, value?: string) => {
     document.execCommand(command, false, value);
-    if(editorRef.current) {
-        editorRef.current.focus();
-        // Manually trigger input event after execCommand to ensure React state updates.
-        onContentChange(editorRef.current.innerHTML);
+    if (editorRef.current) {
+      editorRef.current.focus();
+      onContentChange(editorRef.current.innerHTML);
     }
-  }
-
-  const toolbarButtonStyles = "p-2 rounded text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500";
-
+  };
 
   return (
-    <div className="prose prose-indigo lg:prose-lg max-w-none dark:prose-invert">
-      <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Article Preview</h2>
-      <div className="mt-2 border dark:border-gray-700 rounded-lg bg-gray-50/50 dark:bg-gray-800/50 not-prose transition-colors duration-300">
-        
-        {hasImages ? (
-          <div>
-            {/* Main Image */}
-            <div className="relative rounded-t-lg overflow-hidden shadow-lg -mt-px -ml-px -mr-px">
-              <img 
-                src={article.imageUrls[0]} 
-                alt={article.title} 
-                className={`w-full h-64 md:h-80 object-cover transition-opacity duration-300 ${isRegeneratingImages ? 'opacity-50' : 'opacity-100'}`}
-              />
-              
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent flex flex-col justify-end p-6 md:p-8">
-                  <h1 className="text-3xl md:text-4xl text-white font-bold !my-0 leading-tight" style={{ textShadow: '1px 2px 4px rgba(0, 0, 0, 0.9)' }}>
-                      {article.title}
-                  </h1>
-              </div>
-              
-              {isRegeneratingImages && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40">
-                  <div className="flex flex-col items-center justify-center space-y-2 text-white bg-gray-900 bg-opacity-70 p-4 rounded-lg">
-                    <svg className="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <p className="text-sm font-medium">Regenerating...</p>
-                  </div>
-                </div>
-              )}
-              {onRegenerateImages && !isRegeneratingImages && (
-                <button
-                  onClick={onRegenerateImages}
-                  disabled={isRegeneratingImages}
-                  className="absolute top-3 right-3 flex items-center px-3 py-1.5 text-xs font-medium text-white bg-gray-900 bg-opacity-60 rounded-full hover:bg-opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-white transition-all disabled:cursor-not-allowed"
-                  aria-label="Regenerate image"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 110 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                  </svg>
-                  Regenerate
-                </button>
-              )}
-            </div>
+    <div className="space-y-8">
+       {/* Media Card */}
+       {hasImages && (
+        <div className="group relative overflow-hidden rounded-2xl bg-gray-900 shadow-2xl ring-1 ring-white/10">
+           <div className="aspect-video w-full overflow-hidden">
+             <img 
+               src={article.imageUrls[0]} 
+               alt={article.title} 
+               className="h-full w-full object-cover transition duration-700 group-hover:scale-105 opacity-90 hover:opacity-100"
+             />
+           </div>
+           
+           <div className="absolute top-4 right-4 flex gap-2">
+             <button
+               onClick={onRegenerateImages}
+               disabled={isRegeneratingImages}
+               className="flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-md px-4 py-2 text-xs font-medium text-white shadow-lg ring-1 ring-white/20 hover:bg-black/80 transition-all"
+             >
+               {isRegeneratingImages ? (
+                 <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+               ) : (
+                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+               )}
+               Regenerate Visual
+             </button>
+           </div>
 
-            {/* Additional Images Gallery */}
-            {article.imageUrls.length > 1 && (
-              <div className="p-4 grid grid-cols-2 md:grid-cols-3 gap-4 border-t border-gray-200 dark:border-gray-700">
-                {article.imageUrls.slice(1).map((url, index) => (
-                  <div key={index} className="overflow-hidden rounded-lg shadow-md aspect-w-16 aspect-h-9">
-                    <img 
-                      src={url} 
-                      alt={`${article.title} - image ${index + 2}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="p-4 border-b dark:border-gray-700">
-            <h1 className="text-2xl md:text-3xl !my-0 prose dark:prose-invert">{article.title}</h1>
-          </div>
-        )}
-        
-        <div className="p-4 space-y-6">
-          {/* Meta Description */}
-          {article.metaDescription && (
-             <div>
-                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider !my-0">SEO Meta Description</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-300 !mt-1">{article.metaDescription}</p>
+           {article.imageUrls.length > 1 && (
+             <div className="absolute bottom-4 left-4 right-4 flex gap-2 overflow-x-auto pb-2">
+               {article.imageUrls.slice(1).map((url, i) => (
+                 <img key={i} src={url} className="h-16 w-24 flex-none rounded-lg object-cover shadow-md ring-1 ring-white/20" alt={`Gallery ${i}`} />
+               ))}
              </div>
-          )}
-
-          {/* Tags */}
-          {article.tags && article.tags.length > 0 && (
-             <div>
-                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider !my-0">Tags</h3>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {article.tags.map((tag, index) => (
-                    <span key={index} className="px-2.5 py-1 text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-200 rounded-full">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-             </div>
-          )}
-          
-          {/* Content Editor */}
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider !my-0 mb-2">
-              Article Content {isEditorEnabled ? '(Editable)' : '(Preview)'}
-            </h3>
-            <div className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900">
-              {isEditorEnabled && (
-                <div className="flex items-center p-1 border-b border-gray-300 dark:border-gray-600 space-x-1">
-                  <button onClick={() => execCmd('bold')} title="Bold" className={toolbarButtonStyles}><strong className="font-bold">B</strong></button>
-                  <button onClick={() => execCmd('italic')} title="Italic" className={toolbarButtonStyles}><em className="italic">I</em></button>
-                  <button onClick={() => execCmd('underline')} title="Underline" className={toolbarButtonStyles}><u className="underline">U</u></button>
-                  <button onClick={() => execCmd('formatBlock', '<h2>')} title="Heading 2" className={`${toolbarButtonStyles} font-semibold text-sm`}>H2</button>
-                  <button onClick={() => execCmd('formatBlock', '<h3>')} title="Heading 3" className={`${toolbarButtonStyles} font-semibold text-sm`}>H3</button>
-                  <button onClick={() => execCmd('formatBlock', '<p>')} title="Paragraph" className={`${toolbarButtonStyles} text-sm`}>P</button>
-                  <button onClick={() => execCmd('insertUnorderedList')} title="Bullet List" className={toolbarButtonStyles}>
-                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd"></path></svg>
-                  </button>
-                </div>
-              )}
-              <div
-                ref={editorRef}
-                onInput={handleContentInput}
-                contentEditable={isEditorEnabled}
-                suppressContentEditableWarning={true}
-                className={`prose prose-indigo lg:prose-lg max-w-none text-gray-800 dark:prose-invert p-4 focus:outline-none min-h-[200px] ${!isEditorEnabled ? 'bg-gray-50 dark:bg-gray-800/50 cursor-default' : ''}`}
-                dangerouslySetInnerHTML={{ __html: article.content }}
-              />
-            </div>
-          </div>
-
-          {/* Sources */}
-          {article.sources && article.sources.length > 0 && (
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
-                <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider !my-0">Sources</h3>
-                <ul className="list-none !pl-0 mt-2 space-y-1">
-                  {article.sources.map((source, index) => (
-                    <li key={index} className="text-sm flex items-start">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400 dark:text-gray-500 mr-2 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
-                        <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
-                      </svg>
-                      <a 
-                        href={source.uri} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-indigo-600 dark:text-indigo-400 hover:underline break-all"
-                        title={source.title}
-                      >
-                        {source.title || source.uri}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-            </div>
-          )}
+           )}
         </div>
+       )}
 
-      </div>
+       {/* Editor / Article Card */}
+       <div className="rounded-2xl bg-gray-900/40 backdrop-blur-xl border border-white/5 shadow-2xl overflow-hidden">
+          {/* Header */}
+          <div className="border-b border-white/5 bg-white/5 p-6">
+             <h1 className="text-2xl md:text-3xl font-display font-bold text-white leading-tight">
+               {article.title}
+             </h1>
+             <div className="mt-4 flex flex-wrap items-center gap-3">
+                {article.tags?.map(tag => (
+                  <span key={tag} className="inline-flex items-center rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-medium text-blue-400 ring-1 ring-inset ring-blue-500/20">
+                    #{tag}
+                  </span>
+                ))}
+             </div>
+          </div>
+
+          {/* Toolbar */}
+          {isEditorEnabled && !showHtml && (
+            <div className="sticky top-0 z-20 flex items-center gap-1 overflow-x-auto border-b border-white/5 bg-gray-800/80 backdrop-blur-md p-2">
+              <ToolbarButton onClick={() => execCmd('bold')} icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12h8a4 4 0 100-8H6v8zm0 0h10a4 4 0 110 8H6v-8z" />} label="Bold" />
+              <ToolbarButton onClick={() => execCmd('italic')} icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />} label="Italic" />
+              <div className="mx-1 h-4 w-px bg-white/10" />
+              <ToolbarButton onClick={() => execCmd('formatBlock', 'H2')} label="H2" text />
+              <ToolbarButton onClick={() => execCmd('formatBlock', 'H3')} label="H3" text />
+              <div className="mx-1 h-4 w-px bg-white/10" />
+              <ToolbarButton onClick={() => execCmd('insertUnorderedList')} icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />} label="List" />
+              <ToolbarButton onClick={() => execCmd('insertOrderedList')} icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />} label="Ordered" />
+              <ToolbarButton onClick={() => execCmd('formatBlock', 'blockquote')} icon={<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />} label="Quote" />
+            </div>
+          )}
+
+          {/* Content Area */}
+          <div className="p-6 md:p-8 min-h-[400px]">
+             {showHtml ? (
+               <HtmlOutput html={article.content} />
+             ) : (
+               <div
+                ref={editorRef}
+                contentEditable={isEditorEnabled}
+                onInput={handleContentInput}
+                className={`prose prose-invert prose-lg max-w-none focus:outline-none ${
+                    isEditorEnabled ? 'cursor-text' : 'cursor-default'
+                }`}
+               />
+             )}
+          </div>
+
+          {/* Footer Actions */}
+          <div className="border-t border-white/5 bg-black/20 p-4 flex justify-end">
+            <button 
+              onClick={() => setShowHtml(!showHtml)}
+              className="text-xs font-medium text-gray-400 hover:text-white transition-colors"
+            >
+              {showHtml ? 'Switch to Visual Editor' : 'View Source Code'}
+            </button>
+          </div>
+       </div>
+       
+       {/* Sources/Citations */}
+       {article.sources && article.sources.length > 0 && (
+         <div className="rounded-xl bg-gray-900/40 border border-white/5 p-4">
+            <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Gemini Grounding Sources</h4>
+            <ul className="space-y-2">
+              {article.sources.map((source, idx) => (
+                <li key={idx} className="flex items-start gap-2 text-sm">
+                   <span className="text-blue-500 mt-0.5">•</span>
+                   <a href={source.uri} target="_blank" rel="noreferrer" className="text-blue-400 hover:text-blue-300 hover:underline truncate max-w-md">
+                     {source.title || source.uri}
+                   </a>
+                </li>
+              ))}
+            </ul>
+         </div>
+       )}
     </div>
   );
 };
+
+const ToolbarButton = ({ onClick, icon, label, text = false }: { onClick: () => void, icon?: React.ReactNode, label: string, text?: boolean }) => (
+    <button
+        onClick={onClick}
+        className={`p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors ${text ? 'font-bold text-xs w-8 h-8 flex items-center justify-center' : ''}`}
+        title={label}
+    >
+        {text ? label : (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                {icon}
+            </svg>
+        )}
+    </button>
+);
 
 export default ArticlePreview;
